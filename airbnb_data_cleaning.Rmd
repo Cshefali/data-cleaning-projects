@@ -1,0 +1,23 @@
+---
+title: "AirBnB Data Cleaning"
+author: "Shefali C."
+date: "2024-06-11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+The dataset has been taken from here on Kaggle.  
+This notebook contains steps taken to clean this dataset.  
+
+```{r}
+#load libraries
+library(tidyverse)
+library(janitor)
+library(tm)
+```
+
