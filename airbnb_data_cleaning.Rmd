@@ -1,7 +1,7 @@
 ---
 title: "AirBnB Data Cleaning"
 author: "Shefali C."
-date: "2024-06-11"
+date: "2024-06-14"
 output: html_document
 ---
 
@@ -9,15 +9,245 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Introduction
+**## Introduction**
 
-The dataset has been taken from here on Kaggle.  
+The dataset has been taken from [here](https://www.kaggle.com/datasets/arianazmoudeh/airbnbopendata) on Kaggle.  
 This notebook contains steps taken to clean this dataset.  
 
-```{r}
+
+```{r load-library, warning=FALSE, message=FALSE}
+
 #load libraries
 library(tidyverse)
 library(janitor)
 library(tm)
+
 ```
+
+```{r set-directories}
+
+#working directory
+working_dir <- getwd()
+#data directory
+data_dir <- paste0(working_dir, "/data/")
+#output directory
+op_dir <- paste0(working_dir, "/output/")
+
+```
+
+
+```{r read-data}
+
+data2 <- readr::read_csv(paste0(data_dir, "Airbnb_Open_Data.csv"),
+                        col_types = cols(license = col_character()))
+
+#check dtype of all cols; now license is 'char' and the 2 license values are not lost
+glimpse(data2)
+```
+
+
+The **`col_types`** argument has been used in `read_csv()` above because:  
+- license column was being read as logical.  
+- It contains alphanumeric values, so it must be read as character.  
+- There are only 2 license values present in the entire column of ~102,000 rows.  
+- By default, `read_csv()` of **readr** package takes a sample of first 1000 rows and tries to detect the datatype.  
+- Since `license` column is all NA in the beginning, hence it gets read as logical & the two license values get replaced with NA.  
+- In order to avoid data loss in this manner, if warnings appear like the ones below-
+
+```{r eval=FALSE}
+
+#check warning message
+problems(data)
+
+#1 11116    26 1/0/T/F/TRUE/FALSE (expected); 41662/AL (actal value)
+#2 72949    26 1/0/T/F/TRUE/FALSE (expected); 41662/AL (actal value)
+
+
+```
+
+- It is better to explicitly specify the datatype using `col_types` argument.  
+```{r dataset-structure}
+
+#see the structure
+str(data2)
+```
+
+```{r detect-duplicates}
+
+#check for duplicate rows--541 rows
+sum(duplicated(data2))
+
+```
+
+```{r duplicates-df}
+
+#create a separate dataframe with only duplicate rows
+#see all duplicate rows--contains 1082 rows; 541 unique rows, each with 2 copies
+duplicate_rows <- data2[duplicated(data2) | duplicated(data2, fromLast = T),]
+
+```
+
+```{r remove-duplicates}
+
+#remove duplicate rows
+data2 <- data2 %>% unique()
+
+```
+
+```{r na-count-per-column}
+
+##find missing values in each column
+missing_values <- data2 %>% 
+                    summarise(across(everything(), ~ sum(is.na(.)))) %>% 
+                    pivot_longer(everything(),
+                                 names_to = "column_name",
+                                 values_to = "total_NA") %>% 
+                    #add a column indicating % of NA rows
+                    mutate(percent_blank_rows = (total_NA/nrow(data2))*100) %>% 
+                    #add a "%" sign after rounding off
+                    mutate(percent_blank_rows = round(percent_blank_rows,2))
+```
+
+```{r display-na-count}
+
+#view the missing count dataframe
+knitr::kable(missing_values)
+
+```
+
+```{r clean-cols}
+#License col can be removed as it has values in only 2 rows out of 102,600.
+data2 <- data2 %>% select(-license)
+
+##Clean column names
+data2 <- janitor::clean_names(data2)
+```
+
+## ***Price columns**
+
+
+```{r unique-chars-in-price}
+##1. column- 'price'; currently in char-type
+
+#check for all characters in it except digits
+## prices are either like '$100' or '$1,500'
+unique(gsub(pattern = "\\d+", replacement = "", data2$price))
+
+```
+
+```{r remove-chars}
+
+#remove '$' and ',' symbols with ""
+data2$price <- str_replace_all(data2$price, pattern = "[$,]",
+                               replacement = "")
+
+```
+
+```{r price-to-num}
+#convert price to numeric
+data2$price <- as.numeric(data2$price)
+
+```
+
+```{r unique-chars-service-fee}
+
+## Column- 'Service Fee'; currently in char
+
+#check for all unique characters-- prices only have '$' symbol
+unique(gsub(pattern = "\\d+", replacement = "", data2$service_fee))
+
+```
+
+```{r clean-service-fee}
+
+#replace '$' with ""
+data2$service_fee <- gsub(pattern = '\\$', replacement = "",
+                          data2$service_fee)
+#convert to numeric
+data2$service_fee <- as.numeric(data2$service_fee)
+
+```
+
+## **Column- 'Last review'**  
+
+- contains dates but dtype is char.
+
+```{r last-review}
+
+#check the format of digits- dd/dd/dddd--returns false
+all(grepl(pattern = "\\d{1,2}/\\d{1,2}/\\d{4}", data2$last_review))
+
+```
+
+```{r}
+#find row indices where this pattern is present in last-review column
+correct_date_format_row_index <- grepl(pattern = "\\d{1,2}/\\d{1,2}/\\d{4}",
+                                        data2$last_review)
+
+```
+
+```{r}
+#filter out rows where this pattern isn't present
+data_incorrect_dates <- data2[!correct_date_format_row_index,
+                              c('id', 'name', 'last_review')]
+```
+
+```{r}
+##check whether all last_reviews values are NA in data_incorrect_dates-- all are 0
+sum(!is.na(data_incorrect_dates$last_review))
+```
+
+```{r}
+##Now check range of numbers in each component of date.
+# If range(first 2 digits in all rows) is 1-12 => first 2 digits indicate month
+# If range(middle 2 digtis) is 1-31 => days.
+
+##Check first 2 digits
+# range is 1-12
+unique(str_extract(data2$last_review, pattern = "^\\d{1,2}(?=/)"))
+```
+
+```{r}
+#extract middle 2 digits
+#range 1-31
+summary(unique(as.integer(str_extract(data2$last_review, pattern = "(?<=^\\d{1,2}/)\\d{1,2}"))))
+
+```
+
+```{r}
+#So, 'last_review' column is in format- mm/dd/yyyy
+
+#conver this column to date
+data2$last_review <- lubridate::mdy(data2$last_review)
+
+```
+
+```{r}
+#check range of dates
+summary(data2$last_review) ##- max value is "2058" which seems odd
+```
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
