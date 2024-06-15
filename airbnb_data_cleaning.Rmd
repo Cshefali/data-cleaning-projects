@@ -1,7 +1,7 @@
 ---
 title: "AirBnB Data Cleaning"
 author: "Shefali C."
-date: "2024-06-14"
+date: "2024-06-15"
 output: html_document
 ---
 
@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-**## Introduction**
+## **Introduction**
 
 The dataset has been taken from [here](https://www.kaggle.com/datasets/arianazmoudeh/airbnbopendata) on Kaggle.  
 This notebook contains steps taken to clean this dataset.  
@@ -66,11 +66,6 @@ problems(data)
 ```
 
 - It is better to explicitly specify the datatype using `col_types` argument.  
-```{r dataset-structure}
-
-#see the structure
-str(data2)
-```
 
 ```{r detect-duplicates}
 
@@ -228,8 +223,83 @@ summary(data2$last_review) ##- max value is "2058" which seems odd
 ```
 
 ```{r}
+invalid_year_rows <- data2 %>% 
+                      filter(year(last_review) > 2022) %>% 
+                      select(id, name, last_review)
+```
+
+```{r}
+#convert year values greater than 2022 to 2022
+data2 <- data2 %>% 
+          mutate(last_review = case_when(
+            year(last_review) > 2022 ~ `year<-`(last_review, 2022),
+            TRUE ~ last_review
+          ))
+```
+
+```{r}
+#make a copy of dataframe so far
+data3 <- data2
+```
+
+```{r}
+#Column- Host-identity-verified (unique values check)
+#2 values- "unconfirmed", "verified"
+unique(data3$host_identity_verified)
 
 ```
+
+```{r}
+#find total percentage of verified/unconfirmed
+#Proportion of confirmed identity/ unconfirmed identity is almost same at ~50%
+data3 %>% group_by(host_identity_verified) %>% 
+  summarise(total = n()) %>% 
+  mutate(percent_share = round((total/nrow(data3)*100),2))
+
+```
+
+```{r}
+#Column- Cancellation policy
+#3 categories: strict, moderate, flexible
+unique(data3$cancellation_policy)
+
+```
+
+```{r}
+#check for proportion for each
+#roughly same for all 3, ~33%
+data3 %>% group_by(cancellation_policy) %>% 
+  summarise(total = n()) %>% 
+  mutate(percent_share = round((total/nrow(data3))*100,2))
+
+```
+
+```{r}
+#Column- Room type
+#4 cats- "Private room", "Entire home/apt", "Shared room", "Hotel room"
+unique(data3$room_type)
+
+```
+
+```{r}
+#Most listings are either Entire home/apt OR private room
+data3 %>% group_by(room_type) %>% 
+  summarize(total = n()) %>% 
+  mutate(percent_share = round((total/nrow(data3))*100,2))
+```
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
 
 
 
