@@ -1,7 +1,7 @@
 ---
 title: "AirBnB Data Cleaning"
 author: "Shefali C."
-date: "2024-06-15"
+date: "2024-06-17"
 output: html_document
 ---
 
@@ -21,8 +21,12 @@ This notebook contains steps taken to clean this dataset.
 library(tidyverse)
 library(janitor)
 library(tm)
+library(knitr)
+library(kableExtra)
 
 ```
+  
+
 
 ```{r set-directories}
 
@@ -35,24 +39,23 @@ op_dir <- paste0(working_dir, "/output/")
 
 ```
 
+The **`col_character()`** in **`read_csv()`** is used to set the data-type of `license` column to char-type when read by the function.  
+- If not used, the column was being read as logical.  
+- **`read_csv()`** by default, takes first 1000 rows of dataset and tries detecting the dtype of each column.  
+- In the case of `license`, all rows are blank except 2, towards the end which is why this col gets read as logical and a warning is thrown as shown in cell below.  
+- The two license values get converted to `NA` in the process.  
+- In order to avoid such data loss, it is a good practice to explicitly specify the dtype when such warnings occur.  
+
+
+
 
 ```{r read-data}
 
 data2 <- readr::read_csv(paste0(data_dir, "Airbnb_Open_Data.csv"),
                         col_types = cols(license = col_character()))
 
-#check dtype of all cols; now license is 'char' and the 2 license values are not lost
-glimpse(data2)
 ```
 
-
-The **`col_types`** argument has been used in `read_csv()` above because:  
-- license column was being read as logical.  
-- It contains alphanumeric values, so it must be read as character.  
-- There are only 2 license values present in the entire column of ~102,000 rows.  
-- By default, `read_csv()` of **readr** package takes a sample of first 1000 rows and tries to detect the datatype.  
-- Since `license` column is all NA in the beginning, hence it gets read as logical & the two license values get replaced with NA.  
-- In order to avoid data loss in this manner, if warnings appear like the ones below-
 
 ```{r eval=FALSE}
 
@@ -65,7 +68,14 @@ problems(data)
 
 ```
 
-- It is better to explicitly specify the datatype using `col_types` argument.  
+
+```{r}
+#check dtype of all cols; now license is 'char' and the 2 license values are not lost
+glimpse(data2)
+```
+
+There are 541 duplicate rows in the dataset.
+
 
 ```{r detect-duplicates}
 
@@ -74,13 +84,22 @@ sum(duplicated(data2))
 
 ```
 
+Following code can be used to create a subset of all the duplicate rows.  
+
+
 ```{r duplicates-df}
 
 #create a separate dataframe with only duplicate rows
 #see all duplicate rows--contains 1082 rows; 541 unique rows, each with 2 copies
-duplicate_rows <- data2[duplicated(data2) | duplicated(data2, fromLast = T),]
+duplicate_rows <- data2[duplicated(data2),]
 
 ```
+
+Keep only unique values.  
+Two functions `distinct()` of **dplyr** package OR `unique()` of **baseR** can be used for the same.  
+- Using `distinct()` does not preserve the original order of rows in the dataframe.  
+
+
 
 ```{r remove-duplicates}
 
@@ -88,6 +107,11 @@ duplicate_rows <- data2[duplicated(data2) | duplicated(data2, fromLast = T),]
 data2 <- data2 %>% unique()
 
 ```
+
+Following code creates a dataframe with 3 columns:  
+  - one contains names of columns in original dataframe,  
+  - second column contains total number of NA values in that column,  
+  - third column contains percentage of blank rows in each column.
 
 ```{r na-count-per-column}
 
@@ -103,12 +127,23 @@ missing_values <- data2 %>%
                     mutate(percent_blank_rows = round(percent_blank_rows,2))
 ```
 
+Here are all the columns and total missing values they contain.
+
 ```{r display-na-count}
 
 #view the missing count dataframe
-knitr::kable(missing_values)
+knitr::kable(missing_values) %>%
+        kable_styling(bootstrap_options = "condensed",
+                      #full_width = F,
+                      position = "center",
+                      font_size = 9)
 
 ```
+
+- Remove `license` column.  
+- Clean the column names- remove spaces, hyphens, reduce to lowercase etc.  
+- **`clean_names()`** of **janitor** package handles all these manipulations.
+
 
 ```{r clean-cols}
 #License col can be removed as it has values in only 2 rows out of 102,600.
@@ -291,33 +326,4 @@ data3 %>% group_by(room_type) %>%
 ```{r}
 
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
