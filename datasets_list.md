@@ -20,7 +20,7 @@
 - **Source:** [https://data.cityofchicago.org/](https://data.cityofchicago.org/)
 - **Issues:** Multiple CSVs, datetime formatting inconsistencies, missing values, duplicates.
 
-#B. High-Quality Messy Datasets with Date-Time Issues
+# B. High-Quality Messy Datasets with Date-Time Issues
 
 ## 1. NYC Taxi Trip Data  
 - **Source:** [NYC Taxi & Limousine Commission](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page)  
