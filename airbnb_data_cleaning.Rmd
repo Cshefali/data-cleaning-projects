@@ -1,8 +1,10 @@
 ---
 title: "AirBnB Data Cleaning"
 author: "Shefali C."
-date: "2024-06-17"
-output: rmdformats::readthedown
+date: "2024-06-21"
+output: 
+  rmdformats::readthedown:
+    toc_depth: 5
 ---
 
 ```{r setup, include=FALSE}
@@ -26,7 +28,7 @@ The variables include:
   - and house rules.  
   
 This notebook contains steps taken to clean this dataset.  
-The analysis part of this dataset is covered in another notebook, [here](add link).
+The analysis part of this dataset is covered in another notebook.
 
 
 ```{r load-library, warning=FALSE, message=FALSE}
@@ -62,6 +64,8 @@ op_dir <- paste0(working_dir, "/output/")
 4. **Price columns: ** symbols **"$,"** removed and columns converted to numeric.  
 5. **Date column: ** `last_review` column contains dates, pattern was checked and then column converted from char to date-type.  
 6. **Categorical columns: ** 3 columns have categorical values; they were checked and converted to factors.  
+7. **Clean long texts: ** **`house_rules`** column contains long text form data. All HTML tags, non-readable symbols etc. will be removed.  
+
 
 ## **Notes on reading the dataset**  
 
@@ -440,19 +444,45 @@ unique(data3$host_identity_verified)
 Following is the proportion of verified & unconfirmed host-ids in the dataset. 
 
 
-```{r}
+```{r create-verification-tb}
+
 #find total percentage of verified/unconfirmed
 #Proportion of confirmed identity/ unconfirmed identity is almost same at ~50%
-verification_status <- data3 %>% group_by(host_identity_verified) %>% 
+verification_data <- data3 %>% group_by(host_identity_verified) %>% 
   summarise(total = n()) %>% 
   mutate(percent_share = round((total/nrow(data3)*100),2)) %>% 
-  arrange(-percent_share)
+  arrange(-percent_share) %>% 
+  rename(`Verification Status` = host_identity_verified,
+         `Total data points` = total,
+         `% in dataset` = percent_share
+         )
 
 ```
+
+```{r formatted-verification-tb}
+
+formattable(verification_data,
+            align = c('l', 'c', 'c'),
+            list(
+              `Verification Status` = formatter("span",
+                                                   style = ~ style(color = "black", font.weight = "bold")
+                                                   ),#formatter
+              `Total data points` = color_tile('#FFD1DC', '#FFB6C1'),
+              `% in dataset` = color_tile('#FFD1DC', '#FFB6C1')
+                 )#list
+            ) #formattable
+  
+
+```
+
+In the main dataframe data3, convert the **`host_identity_verified`** column to factor with 2 categories.
 
 ```{r}
-formattable(verification_status)
+data3$host_identity_verified <- factor(data3$host_identity_verified,
+                                    exclude = NA)
 ```
+
+
 
 
 #### **6.2 Categories in `cancellation-policy` column** 
@@ -471,12 +501,40 @@ unique(data3$cancellation_policy)
 ```{r}
 #check for proportion for each
 #roughly same for all 3, ~33%
-data3 %>% group_by(cancellation_policy) %>% 
+cancel_policy <- data3 %>% group_by(cancellation_policy) %>% 
   summarise(total = n()) %>% 
   mutate(percent_share = round((total/nrow(data3))*100,2)) %>% 
-  arrange(-percent_share)
+  arrange(-percent_share) %>% 
+  rename(`Cancellation Policy` = cancellation_policy,
+         `Total data points` = total,
+         `% in dataset` = percent_share
+         )
 
 ```
+
+```{r}
+
+formattable(cancel_policy,
+            align = c('l', 'c', 'c'),
+            list(
+              `Cancellation Policy` = formatter("span",
+                                                   style = ~ style(color = "black", font.weight = "bold")
+                                                   ),#formatter
+              `Total data points` = color_tile('#FFD1DC', '#FFB6C1'),
+              `% in dataset` = color_tile('#FFD1DC', '#FFB6C1')
+                 )#list
+            ) #formattable
+
+```
+
+In the main dataframe data3, convert the **`cancellation_policy`** column to factor with 3 categories.
+
+```{r}
+data3$cancellation_policy <- factor(data3$cancellation_policy,
+                                    exclude = NA)
+```
+
+
 
 #### **6.3 Categories in `room_type` column** 
 
@@ -492,9 +550,96 @@ unique(data3$room_type)
 
 ```{r}
 #Most listings are either Entire home/apt OR private room
-data3 %>% group_by(room_type) %>% 
+type_of_room <- data3 %>% group_by(room_type) %>% 
   summarize(total = n()) %>% 
   mutate(percent_share = round((total/nrow(data3))*100,2)) %>% 
-  arrange(-percent_share)
+  arrange(-percent_share) %>% 
+  rename(`Type of Room` = room_type,
+         `Total Rows` = total,
+         `% in dataset` = percent_share
+         )
 
 ```
+
+```{r}
+formattable(type_of_room,
+            align = c('l', 'c', 'c'),
+            list(
+              `Type of Room` = formatter("span",
+                                                   style = ~ style(color = "black", font.weight = "bold")
+                                                   ),#formatter
+              `Total Rows` = color_tile('#FFD1DC', '#FFB6C1'),
+              `% in dataset` = color_tile('#FFD1DC', '#FFB6C1')
+                 )#list
+            ) #formattable
+```
+
+In the main dataframe data3, convert this **`room_type`** column to factor with 4 categories. 
+
+
+```{r}
+#convert to factor
+data3$room_type <- factor(data3$room_type, exclude = NA)
+```
+
+### **7. Clean `house_rules` column**  
+
+a) First, we check for presence of HTML tags; remove them if present.  
+b) Then, we remove unnecessary symbols which will not contribute to understanding most common house rules.  
+
+#### 7.1 HTML tags  
+
+No HTML tags found.
+
+
+```{r}
+#check for presence of HTML tags.
+any(grepl(pattern = "<.*?>", data3$house_rules))
+```
+
+#### 7.2 Remove "#NAME?" from texts
+
+```{r}
+
+#some rows contain this value in house-rules column
+data3$house_rules <- gsub(pattern = "#NAME?", replacement = "", data3$house_rules)
+#some rows contain '?' in house-rules column
+data3$house_rules <- gsub(pattern = "^\\?$", replacement = "", data3$house_rules)
+
+```
+
+If there are rows where house-rule only contains "#NAME?", it was replaced with empty string ("") by the line above.  
+Now, such cells which only contain empty string get converted to NA.  
+
+
+```{r}
+#replace empty string with NA in house-rules column
+data3$house_rules <- gsub(pattern = "^$", replacement = NA, data3$house_rules)
+```
+
+#### 7.3 Remove bulletin symbols (-, : , * etc.)  
+
+Many sentences in house-rule column have symbols used to add bulletin points.  
+This step removes all such symbols.  
+
+```{r}
+
+#remove bulletin symbols like "•" from house_rules
+data3$house_rules <- stringr::str_remove_all(data3$house_rules, 
+                                         pattern = "[•-]")
+#remove numeric bulletin symbols like 1. abc, 2. xyz, ...
+data3$house_rules <- stringr::str_remove_all(data3$house_rules,
+                                             pattern = "\\d{1}\\.(?=\\s)")
+
+```
+
+#### 7.4 Remove extra whitespaces  
+
+All leading, trailing and extra whitespaces in-between words get removed.  
+
+```{r}
+data3$house_rules <- trimws(data3$house_rules)
+```
+
+
+
